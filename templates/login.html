@@ -6,7 +6,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
     <title>后台登录 - IPTV管理系统2.0</title>
-    <link rel="icon" href="favicon.ico" type="image/ico">
+    <link rel="icon" href="{% static 'favicon.ico' %}" type="image/ico">  <!-- 修复：静态资源引用 -->
     <link href="{% static 'css/bootstrap.min.css'%}" rel="stylesheet">
     <link href="{% static 'css/materialdesignicons.min.css' %}" rel="stylesheet">
     <link href="{% static 'css/style.min.css' %}" rel="stylesheet">
@@ -72,6 +72,7 @@
                     </a>
                 </div>
                 <form id="loginForm">
+                    {% csrf_token %}  <!-- 新增：CSRF令牌 -->
                     <div class="form-group has-feedback feedback-left">
                         <input type="text" placeholder="请输入您的用户名" class="form-control" name="username" id="username" />
                         <span class="mdi mdi-account form-control-feedback" aria-hidden="true"></span>
@@ -100,6 +101,25 @@
             $('#loginForm').on('submit', function (event) {
                 lightyear.loading('show');
                 event.preventDefault();
+                
+                // 新增：前端输入校验
+                const username = $.trim($('#username').val());
+                const password = $.trim($('#password').val());
+                if (!username) {
+                    lightyear.loading('hide');
+                    lightyear.notify('请输入用户名', 'warning', 2000);
+                    return;
+                }
+                if (!password) {
+                    lightyear.loading('hide');
+                    lightyear.notify('请输入密码', 'warning', 2000);
+                    return;
+                }
+
+                // 新增：禁用登录按钮，防止重复点击
+                const $loginBtn = $('#login');
+                $loginBtn.prop('disabled', true).text('登录中...');
+                
                 $.ajax({
                     url: '/admin/login',
                     type: 'POST',
@@ -107,15 +127,22 @@
                     success: function (response) {
                         lightyear.loading('hide');
                         if (response.code == 200) {
-                            lightyear.notify('登录成功，页面即将自动跳转~', 'success', 1000, 'mdi mdi-emoticon-happy', 'top', 'center' , response.redirect);
+                            lightyear.notify('登录成功，页面即将自动跳转~', 'success', 1000, 'mdi mdi-emoticon-happy', 'top', 'center');
+                            // 新增：手动跳转（替代无效参数）
+                            setTimeout(() => {
+                                window.location.href = response.redirect || '/admin/index';
+                            }, 1000);
                         } else {
                             lightyear.notify(response.msg, 'danger', 2000);
-                            lightyear.loading('hide');
+                            // 恢复按钮
+                            $loginBtn.prop('disabled', false).text('立即登录');
                         }
                     },
                     error: function () {
                         lightyear.loading('hide');
                         lightyear.notify('网络错误或服务器无响应', 'danger', 2000);
+                        // 恢复按钮
+                        $loginBtn.prop('disabled', false).text('立即登录');
                     }
                 });
             });
