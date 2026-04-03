@@ -338,3 +338,74 @@ def exitImg(request):
         return JsonResponse({"code": 200, "msg": "修改成功！"})
     else:
         return JsonResponse({"code": 500, "msg": "请求方式错误！"})
+        # ===================== 批量导入频道（直接粘贴到文件末尾）=====================
+import json
+from django.db import transaction
+from django.http import JsonResponse
+from .models import Category, Channel
+
+@api_need_login
+def batch_import_channel(request):
+    if request.method != 'POST':
+        return JsonResponse({"code": 500, "msg": "请求方式错误"})
+
+    try:
+        # 接收前端文本数据（支持粘贴文本 / 上传文件解析）
+        data_str = request.POST.get('data', '')
+        if not data_str:
+            return JsonResponse({"code": 400, "msg": "未获取到导入数据"})
+
+        data = json.loads(data_str)
+        categories = data.get('categories', [])
+        channels = data.get('channels', [])
+
+        # 分类缓存（不存在自动创建）
+        cate_map = {}
+        for cate_name in categories:
+            cate_name = cate_name.strip()
+            if not cate_name:
+                continue
+            cate, _ = Category.objects.get_or_create(name=cate_name)
+            cate_map[cate_name] = cate.id
+
+        count = 0
+        repeat = 0
+
+        with transaction.atomic():
+            for ch in channels:
+                cate_name = ch.get('category', '')
+                name = ch.get('name', '').strip()
+                sources = ch.get('sources', [])
+                url = sources[0].strip() if sources else ''
+
+                if not name or not url:
+                    continue
+
+                cate_id = cate_map.get(cate_name, None)
+                if not cate_id:
+                    continue
+
+                # 查重
+                if Channel.objects.filter(name=name).exists():
+                    repeat += 1
+                    continue
+
+                # 创建频道（完全匹配你现有字段）
+                Channel.objects.create(
+                    name=name,
+                    url=url,
+                    desc="",
+                    category_id=cate_id,
+                    hidden=False,
+                    useApi=False,
+                    apiCode=""
+                )
+                count += 1
+
+        return JsonResponse({
+            "code": 200,
+            "msg": f"导入成功：{count} 个，重复跳过：{repeat} 个"
+        })
+
+    except Exception as e:
+        return JsonResponse({"code": 400, "msg": f"导入失败：{str(e)}"})
