@@ -141,3 +141,52 @@ STATICFILES_DIRS = [
 # https://docs.djangoproject.com/en/4.2/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+# ========== 新增：日志配置 ==========
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,  # 不禁用已有日志器
+    'formatters': {
+        # 日志格式：包含 时间、日志级别、文件名、行号、日志信息
+        'verbose': {
+            'format': '{levelname} {asctime} {module} {lineno:d} {message}',
+            'style': '{',  # 使用新式字符串格式化
+        },
+        'simple': {
+            'format': '{levelname} {message}',
+            'style': '{',
+        },
+    },
+    'handlers': {
+        # 控制台输出（开发环境用）
+        'console': {
+            'level': 'INFO',
+            'class': 'logging.StreamHandler',
+            'formatter': 'verbose'
+        },
+        # 文件输出（生产环境用，日志会写入文件）
+        'file': {
+            'level': 'INFO',  # 日志级别：DEBUG < INFO < WARNING < ERROR < CRITICAL
+            'class': 'logging.handlers.RotatingFileHandler',  # 按大小切割日志文件
+            'filename': os.path.join(BASE_DIR, 'logs/iptv_admin.log'),  # 日志文件路径
+            'maxBytes': 1024 * 1024 * 50,  # 单个日志文件最大50MB
+            'backupCount': 5,  # 最多保留5个备份日志文件
+            'formatter': 'verbose',  # 使用上面定义的verbose格式
+            'encoding': 'utf-8',  # 防止中文乱码
+        },
+    },
+    'loggers': {
+        # 项目全局日志器（匹配所有日志）
+        'django': {
+            'handlers': ['console', 'file'],  # 同时输出到控制台+文件
+            'level': 'INFO',
+            'propagate': True,
+        },
+        # 针对adminApi应用的专属日志器（更精准）
+        'adminApi': {
+            'handlers': ['console', 'file'],
+            'level': 'INFO',
+            'propagate': False,  # 不向上传播，避免重复日志
+        },
+    },
+}
+# ========== 日志配置结束 ==========
